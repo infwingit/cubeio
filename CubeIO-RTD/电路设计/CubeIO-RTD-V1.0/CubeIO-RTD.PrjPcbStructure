@@ -1,0 +1,5 @@
+Record=SheetSymbol|SourceDocument=ALL.Sch|Designator=CPU|SchDesignator=CPU|FileName=CPU.sch|SymbolType=Normal|RawFileName=CPU.sch|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol
+Record=SheetSymbol|SourceDocument=ALL.Sch|Designator=U_AI|SchDesignator=U_AI|FileName=AI.sch|SymbolType=Normal|RawFileName=AI.sch|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol
+Record=SheetSymbol|SourceDocument=ALL.Sch|Designator=U_AQ|SchDesignator=U_AQ|FileName=AQ.sch|SymbolType=Normal|RawFileName=AQ.sch|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol
+Record=SheetSymbol|SourceDocument=ALL.Sch|Designator=U_ATTACH|SchDesignator=U_ATTACH|FileName=ATTACH.SchDoc|SymbolType=Normal|RawFileName=ATTACH.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol
+Record=TopLevelDocument|FileName=ALL.Sch
