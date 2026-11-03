@@ -507,8 +507,8 @@ const int32_t SEGMENT_RTD_PT50_3851[2] = {-4409359, -2100879, };
 //------------------------------------------
 const int32_t PROGMEM_CALIBPOINT_IDEAL_VALUE[SENSORTYPE_NUM][2] =
 {
-    { -3737963, -927568}, //ADCSPAN_100MV
-    { -205588, 2425492 }, //ADCSPAN_1000MV
+    { -3737963, -927568}, //ADC_INPUT_RANGE_SMALL
+    { -205588, 2425492 }, //ADC_INPUT_RANGE_LARGE
 };
 
 ////------------------------------------------
@@ -570,7 +570,7 @@ const int32_t PROGMEM_SENSOR_ADC_RANGE[SENSORTYPE_NUM][2] =
 //Sensor range, for use of OVER RANGE detection
 //The value is (original_value * 10)
 //------------------------------------------
-const int16_t PROGMEM_SENSOR_RESULT_RANGE[SENSORTYPE_NUM][2] =
+const int32_t PROGMEM_SENSOR_RESULT_RANGE[SENSORTYPE_NUM][2] =
 {
     { -2000, 8500 },//SENSORTYPE_PT100_3851
     { -2000, 8500 },//SENSORTYPE_PT200_3851
@@ -617,7 +617,7 @@ const int16_t PROGMEM_SENSOR_RESULT_RANGE[SENSORTYPE_NUM][2] =
     { -500, 1500 }, //SENSORTYPE_CU1000_428
 
     { 0, 6000 }, //SENSORTYPE_R600
-    { 0, (int16_t)40000 }, //SENSORTYPE_R40000
+    { 0, 40000 }, //SENSORTYPE_R40000
 
     { -2000, 8500 }, //SENSORTYPE_PT50_3851
 };
@@ -625,9 +625,9 @@ const int16_t PROGMEM_SENSOR_RESULT_RANGE[SENSORTYPE_NUM][2] =
 //------------------------------------------
 // Calib Circuit Zero Value
 //------------------------------------------
-int32_t adcCalibSystemOffset(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t systemOffset, int32_t adcValue)
+int32_t adcCalibSystemOffset(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t systemOffset, int32_t RawAdcValue)
 {
-    uint8_t RtdType = pChannelItemConfig->RtdType;
+    uint32_t RtdType = pChannelItemConfig->RtdType;
 
     switch(RtdType)
     {
@@ -677,16 +677,16 @@ int32_t adcCalibSystemOffset(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int
     default:
         break;
     }
-    return (adcValue - systemOffset);
+    return (int32_t)(RawAdcValue - systemOffset);
 }
 
 //------------------------------------------
 // Calib Full and Zero Value
 //------------------------------------------
-int32_t adcTwoPointCalib(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t value)
+int32_t adcTwoPointCalib(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t RawAdcValue)
 {
     int32_t idealZero = 0, idealFull = 0, realZero = 0, realFull = 0;
-    uint8_t RtdType = pChannelItemConfig->RtdType;
+    uint32_t RtdType = pChannelItemConfig->RtdType;
 
     switch(RtdType)
     {
@@ -715,10 +715,10 @@ int32_t adcTwoPointCalib(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     case SENSORTYPE_CU1000_428:
     case SENSORTYPE_R4000:
     {
-        realZero = pChannelItemConfig->calibPoint1000mv_1;
-        realFull = pChannelItemConfig->calibPoint1000mv_2;
-        idealZero = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_1000MV][0];
-        idealFull = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_1000MV][1];
+        realZero = pChannelItemConfig->CalibPt_AdcInputRangeLarge_Lower;
+        realFull = pChannelItemConfig->CalibPt_AdcInputRangeLarge_Upper;
+        idealZero = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_LARGE][0];
+        idealFull = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_LARGE][1];
         break;
     }
     //	case SENSORTYPE_PT100_3851:
@@ -736,17 +736,17 @@ int32_t adcTwoPointCalib(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     //	case SENSORTYPE_R400:
     default:
     {
-        realZero = pChannelItemConfig->calibPoint100mv_1;
-        realFull = pChannelItemConfig->calibPoint100mv_2;
-        idealZero = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_100MV][0];
-        idealFull = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_100MV][1];
+        realZero = pChannelItemConfig->CalibPt_AdcInputRangeSmall_Lower;
+        realFull = pChannelItemConfig->CalibPt_AdcInputRangeSmall_Upper;
+        idealZero = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_SMALL][0];
+        idealFull = PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_SMALL][1];
         break;
     }
     }
 
-    float valueCalibed = ((float) value - (float) realZero) / ((float) realFull - (float) realZero)
-                         * (idealFull - idealZero) + idealZero;
-    return (int32_t) valueCalibed;
+    float RawAdcValueCalibed = ((float) RawAdcValue - (float) realZero) / ((float) realFull - (float) realZero)
+                               * (idealFull - idealZero) + idealZero;
+    return (int32_t) RawAdcValueCalibed;
 }
 
 //------------------------------------------
@@ -783,9 +783,9 @@ uint8_t adcSearchPloyfitSegmentIdx(const int32_t* segment, uint8_t segmentSize, 
 //------------------------------------------
 // Caculate Channel Value
 //------------------------------------------
-float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t adcVaule)
+float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t RawAdcValueCalibed)
 {
-    uint8_t RtdType = pChannelItemConfig->RtdType;
+    uint32_t RtdType = pChannelItemConfig->RtdType;
     uint8_t segmentIdx = 0;
     float dataValue = 0;
 
@@ -795,36 +795,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT100_3851,
-                                                sizeof(SEGMENT_RTD_PT100_3851) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT100_3851) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT100_3851[segmentIdx],
-                                            sizeof(COFF_RTD_PT100_3851[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT100_3851[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT200_3851:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT200_3851,
-                                                sizeof(SEGMENT_RTD_PT200_3851) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT200_3851) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT200_3851[segmentIdx],
-                                            sizeof(COFF_RTD_PT200_3851[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT200_3851[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT500_3851:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT500_3851,
-                                                sizeof(SEGMENT_RTD_PT500_3851) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT500_3851) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT500_3851[segmentIdx],
-                                            sizeof(COFF_RTD_PT500_3851[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT500_3851[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT1000_3851:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT1000_3851,
-                                                sizeof(SEGMENT_RTD_PT1000_3851) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT1000_3851) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT1000_3851[segmentIdx],
-                                            sizeof(COFF_RTD_PT1000_3851[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT1000_3851[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -832,36 +832,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT100_3916,
-                                                sizeof(SEGMENT_RTD_PT100_3916) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT100_3916) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT100_3916[segmentIdx],
-                                            sizeof(COFF_RTD_PT100_3916[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT100_3916[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT200_3916:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT200_3916,
-                                                sizeof(SEGMENT_RTD_PT200_3916) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT200_3916) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT200_3916[segmentIdx],
-                                            sizeof(COFF_RTD_PT200_3916[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT200_3916[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT500_3916:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT500_3916,
-                                                sizeof(SEGMENT_RTD_PT500_3916) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT500_3916) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT500_3916[segmentIdx],
-                                            sizeof(COFF_RTD_PT500_3916[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT500_3916[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT1000_3916:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT1000_3916,
-                                                sizeof(SEGMENT_RTD_PT1000_3916) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT1000_3916) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT1000_3916[segmentIdx],
-                                            sizeof(COFF_RTD_PT1000_3916[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT1000_3916[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -869,36 +869,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT100_3920,
-                                                sizeof(SEGMENT_RTD_PT100_3920) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT100_3920) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT100_3920[segmentIdx],
-                                            sizeof(COFF_RTD_PT100_3920[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT100_3920[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT200_3920:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT200_3920,
-                                                sizeof(SEGMENT_RTD_PT200_3920) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT200_3920) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT200_3920[segmentIdx],
-                                            sizeof(COFF_RTD_PT200_3920[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT200_3920[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT500_3920:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT500_3920,
-                                                sizeof(SEGMENT_RTD_PT500_3920) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT500_3920) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT500_3920[segmentIdx],
-                                            sizeof(COFF_RTD_PT500_3920[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT500_3920[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT1000_3920:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT1000_3920,
-                                                sizeof(SEGMENT_RTD_PT1000_3920) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT1000_3920) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT1000_3920[segmentIdx],
-                                            sizeof(COFF_RTD_PT1000_3920[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT1000_3920[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -906,36 +906,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT100_3911,
-                                                sizeof(SEGMENT_RTD_PT100_3911) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT100_3911) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT100_3911[segmentIdx],
-                                            sizeof(COFF_RTD_PT100_3911[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT100_3911[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT200_3911:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT200_3911,
-                                                sizeof(SEGMENT_RTD_PT200_3911) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT200_3911) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT200_3911[segmentIdx],
-                                            sizeof(COFF_RTD_PT200_3911[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT200_3911[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT500_3911:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT500_3911,
-                                                sizeof(SEGMENT_RTD_PT500_3911) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT500_3911) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT500_3911[segmentIdx],
-                                            sizeof(COFF_RTD_PT500_3911[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT500_3911[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT1000_3911:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT1000_3911,
-                                                sizeof(SEGMENT_RTD_PT1000_3911) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT1000_3911) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT1000_3911[segmentIdx],
-                                            sizeof(COFF_RTD_PT1000_3911[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT1000_3911[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -943,36 +943,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT100_3928,
-                                                sizeof(SEGMENT_RTD_PT100_3928) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT100_3928) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT100_3928[segmentIdx],
-                                            sizeof(COFF_RTD_PT100_3928[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT100_3928[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT200_3928:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT200_3928,
-                                                sizeof(SEGMENT_RTD_PT200_3928) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT200_3928) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT200_3928[segmentIdx],
-                                            sizeof(COFF_RTD_PT200_3928[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT200_3928[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT500_3928:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT500_3928,
-                                                sizeof(SEGMENT_RTD_PT500_3928) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT500_3928) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT500_3928[segmentIdx],
-                                            sizeof(COFF_RTD_PT500_3928[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT500_3928[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT1000_3928:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT1000_3928,
-                                                sizeof(SEGMENT_RTD_PT1000_3928) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT1000_3928) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT1000_3928[segmentIdx],
-                                            sizeof(COFF_RTD_PT1000_3928[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT1000_3928[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -980,36 +980,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT100_3750,
-                                                sizeof(SEGMENT_RTD_PT100_3750) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT100_3750) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT100_3750[segmentIdx],
-                                            sizeof(COFF_RTD_PT100_3750[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT100_3750[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT200_3750:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT200_3750,
-                                                sizeof(SEGMENT_RTD_PT200_3750) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT200_3750) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT200_3750[segmentIdx],
-                                            sizeof(COFF_RTD_PT200_3750[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT200_3750[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT500_3750:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT500_3750,
-                                                sizeof(SEGMENT_RTD_PT500_3750) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT500_3750) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT500_3750[segmentIdx],
-                                            sizeof(COFF_RTD_PT500_3750[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT500_3750[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT1000_3750:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT1000_3750,
-                                                sizeof(SEGMENT_RTD_PT1000_3750) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT1000_3750) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT1000_3750[segmentIdx],
-                                            sizeof(COFF_RTD_PT1000_3750[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT1000_3750[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -1017,36 +1017,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI100_6180,
-                                                sizeof(SEGMENT_RTD_NI100_6180) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI100_6180) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI100_6180[segmentIdx],
-                                            sizeof(COFF_RTD_NI100_6180[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI100_6180[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_NI120_6180:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI120_6180,
-                                                sizeof(SEGMENT_RTD_NI120_6180) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI120_6180) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI120_6180[segmentIdx],
-                                            sizeof(COFF_RTD_NI120_6180[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI120_6180[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_NI500_6180:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI500_6180,
-                                                sizeof(SEGMENT_RTD_NI500_6180) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI500_6180) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI500_6180[segmentIdx],
-                                            sizeof(COFF_RTD_NI500_6180[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI500_6180[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_NI1000_6180:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI1000_6180,
-                                                sizeof(SEGMENT_RTD_NI1000_6180) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI1000_6180) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI1000_6180[segmentIdx],
-                                            sizeof(COFF_RTD_NI1000_6180[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI1000_6180[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -1054,36 +1054,36 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI100_6720,
-                                                sizeof(SEGMENT_RTD_NI100_6720) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI100_6720) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI100_6720[segmentIdx],
-                                            sizeof(COFF_RTD_NI100_6720[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI100_6720[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_NI120_6720:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI120_6720,
-                                                sizeof(SEGMENT_RTD_NI120_6720) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI120_6720) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI120_6720[segmentIdx],
-                                            sizeof(COFF_RTD_NI120_6720[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI120_6720[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_NI500_6720:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI500_6720,
-                                                sizeof(SEGMENT_RTD_NI500_6720) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI500_6720) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI500_6720[segmentIdx],
-                                            sizeof(COFF_RTD_NI500_6720[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI500_6720[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_NI1000_6720:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_NI1000_6720,
-                                                sizeof(SEGMENT_RTD_NI1000_6720) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_NI1000_6720) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_NI1000_6720[segmentIdx],
-                                            sizeof(COFF_RTD_NI1000_6720[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_NI1000_6720[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
 
@@ -1091,95 +1091,95 @@ float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_CU50_428, sizeof(SEGMENT_RTD_CU50_428)
-                                                / sizeof(int32_t), adcVaule);
+                                                / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_CU50_428[segmentIdx],
-                                            sizeof(COFF_RTD_CU50_428[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_CU50_428[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_CU100_428:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_CU100_428,
-                                                sizeof(SEGMENT_RTD_CU100_428) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_CU100_428) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_CU100_428[segmentIdx],
-                                            sizeof(COFF_RTD_CU100_428[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_CU100_428[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_CU1000_428:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_CU1000_428,
-                                                sizeof(SEGMENT_RTD_CU1000_428) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_CU1000_428) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_CU1000_428[segmentIdx],
-                                            sizeof(COFF_RTD_CU1000_428[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_CU1000_428[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_R600:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_R600, sizeof(SEGMENT_RTD_R600)
-                                                / sizeof(int32_t), adcVaule);
+                                                / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_R600[segmentIdx], sizeof(COFF_RTD_R600[segmentIdx])
-                                            / sizeof(float), adcVaule);
+                                            / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_R4000:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_R4000, sizeof(SEGMENT_RTD_R4000)
-                                                / sizeof(int32_t), adcVaule);
+                                                / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_R4000[segmentIdx], sizeof(COFF_RTD_R4000[segmentIdx])
-                                            / sizeof(float), adcVaule);
+                                            / sizeof(float), RawAdcValueCalibed);
         break;
     }
     case SENSORTYPE_PT50_3851:
     {
         //check ADC value over range
         segmentIdx = adcSearchPloyfitSegmentIdx(SEGMENT_RTD_PT50_3851,
-                                                sizeof(SEGMENT_RTD_PT50_3851) / sizeof(int32_t), adcVaule);
+                                                sizeof(SEGMENT_RTD_PT50_3851) / sizeof(int32_t), RawAdcValueCalibed);
         dataValue = adcCalcPolynominalValue(COFF_RTD_PT50_3851[segmentIdx],
-                                            sizeof(COFF_RTD_PT50_3851[segmentIdx]) / sizeof(float), adcVaule);
+                                            sizeof(COFF_RTD_PT50_3851[segmentIdx]) / sizeof(float), RawAdcValueCalibed);
         break;
     }
     default:
         break;
     }
-    adcVaule = dataValue * 10 + 0.5;//round up
-    return adcVaule;
+    RawAdcValueCalibed = dataValue * 10 + 0.5;//round up
+    return RawAdcValueCalibed;
 }
 
 //------------------------------------------
 // Channel value after calibration should be inside the sensor range..
 // return calibed value
 //------------------------------------------
-int16_t adcCalcEngCalibedSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int16_t chnlValue)
+int32_t adcCalcEngCalibedSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t Value)
 {
     //must use long value to hold values, cause it's two int's sum or sub,maybe overflow
-    uint8_t RtdType = pChannelItemConfig->RtdType;
-    int16_t calibValue = pChannelItemConfig->TOffset;
-    int16_t calibedValue = chnlValue + calibValue;
+    uint32_t RtdType = pChannelItemConfig->RtdType;
+    int32_t TOffset = pChannelItemConfig->TOffset;
+    int16_t ValueOffseted = Value + TOffset;
     int16_t valueMin = (int16_t) PROGMEM_SENSOR_RESULT_RANGE[RtdType][0];
     int16_t valueMax = (int16_t) PROGMEM_SENSOR_RESULT_RANGE[RtdType][1];
 
-    if(calibedValue < valueMin)
+    if(ValueOffseted < valueMin)
     {
-        calibedValue = valueMin;
+        ValueOffseted = valueMin;
     }
-    if(calibedValue > valueMax)
+    if(ValueOffseted > valueMax)
     {
-        calibedValue = valueMax;
+        ValueOffseted = valueMax;
     }
-    return calibedValue;
+    return ValueOffseted;
 }
 
 //------------------------------------------
 // Check Channel Over Range
 // Return: -1:Low, 0:Normal, +1:High
 //------------------------------------------
-int16_t adcCheckAdcOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t adcVaule)
+int32_t adcCheckAdcOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t RawAdcValue)
 {
     int32_t buffer = 0;
-    uint8_t RtdType = pChannelItemConfig->RtdType;
+    uint32_t RtdType = pChannelItemConfig->RtdType;
     switch(RtdType)
     {
     case SENSORTYPE_PT100_3851:
@@ -1235,11 +1235,11 @@ int16_t adcCheckAdcOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int
     int32_t valMin = PROGMEM_SENSOR_ADC_RANGE[RtdType][0] - buffer;
     int32_t valMax = PROGMEM_SENSOR_ADC_RANGE[RtdType][1] + buffer;
 
-    if(adcVaule < valMin)
+    if(RawAdcValue < valMin)
     {
         return -1;
     }
-    if(adcVaule > valMax)
+    if(RawAdcValue > valMax)
     {
         return 1;
     }
@@ -1250,22 +1250,21 @@ int16_t adcCheckAdcOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int
 // Check Channel Value Over Range
 // Return: -1:Low, 0:Normal, +1:High
 //------------------------------------------
-int16_t adcCheckSensorValueOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int16_t value)
+int32_t adcCheckSensorValueOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t Value)
 {
-    uint8_t RtdType = pChannelItemConfig->RtdType;
+    uint32_t RtdType = pChannelItemConfig->RtdType;
 
     switch(RtdType)
     {
     case SENSORTYPE_R4000:
     {
-        uint16_t valueMin = PROGMEM_SENSOR_RESULT_RANGE[RtdType][0];
-        uint16_t valueMax = PROGMEM_SENSOR_RESULT_RANGE[RtdType][1];
-        uint16_t valueUnit16 = (uint16_t) value;
-        if(valueUnit16 < valueMin)
+        int32_t valueMin = PROGMEM_SENSOR_RESULT_RANGE[RtdType][0];
+        int32_t valueMax = PROGMEM_SENSOR_RESULT_RANGE[RtdType][1];
+        if(Value < valueMin)
         {
             return -1;
         }
-        if(valueUnit16 > valueMax)
+        if(Value > valueMax)
         {
             return 1;
         }
@@ -1274,14 +1273,14 @@ int16_t adcCheckSensorValueOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemCon
     }
     default:
     {
-        int16_t valueMin = PROGMEM_SENSOR_RESULT_RANGE[RtdType][0];
-        int16_t valueMax = PROGMEM_SENSOR_RESULT_RANGE[RtdType][1];
+        int32_t valueMin = PROGMEM_SENSOR_RESULT_RANGE[RtdType][0];
+        int32_t valueMax = PROGMEM_SENSOR_RESULT_RANGE[RtdType][1];
 
-        if(value < valueMin)
+        if(Value < valueMin)
         {
             return -1;
         }
-        if(value > valueMax)
+        if(Value > valueMax)
         {
             return 1;
         }
@@ -1292,65 +1291,124 @@ int16_t adcCheckSensorValueOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemCon
 
 }
 
+#define SENSORTYPE_PT100_3851     0
+#define SENSORTYPE_PT200_3851     1
+#define SENSORTYPE_PT500_3851     2
+#define SENSORTYPE_PT1000_3851    3
+
+#define SENSORTYPE_PT100_3916     4
+#define SENSORTYPE_PT200_3916     5
+#define SENSORTYPE_PT500_3916     6
+#define SENSORTYPE_PT1000_3916    7
+
+#define SENSORTYPE_PT100_3920     8
+#define SENSORTYPE_PT200_3920     9
+#define SENSORTYPE_PT500_3920     10
+#define SENSORTYPE_PT1000_3920    11
+
+#define SENSORTYPE_PT100_3911     12
+#define SENSORTYPE_PT200_3911     13
+#define SENSORTYPE_PT500_3911     14
+#define SENSORTYPE_PT1000_3911    15
+
+#define SENSORTYPE_PT100_3928     16
+#define SENSORTYPE_PT200_3928     17
+#define SENSORTYPE_PT500_3928     18
+#define SENSORTYPE_PT1000_3928    19
+
+#define SENSORTYPE_PT100_3750     20
+#define SENSORTYPE_PT200_3750     21
+#define SENSORTYPE_PT500_3750     22
+#define SENSORTYPE_PT1000_3750    23
+
+#define SENSORTYPE_NI100_6180     24
+#define SENSORTYPE_NI120_6180     25
+#define SENSORTYPE_NI500_6180     26
+#define SENSORTYPE_NI1000_6180    27
+
+#define SENSORTYPE_NI100_6720     28
+#define SENSORTYPE_NI120_6720     29
+#define SENSORTYPE_NI500_6720     30
+#define SENSORTYPE_NI1000_6720    31
+
+#define SENSORTYPE_CU50_428       32
+#define SENSORTYPE_CU100_428      33
+#define SENSORTYPE_CU1000_428     34
+
+#define SENSORTYPE_R600           35
+#define SENSORTYPE_R4000          36
+
+#define SENSORTYPE_PT50_3851      37
+#define SENSORTYPE_END            37
+
+
 const STRUCT_SENSORTYPE_ADCCONFIG PROGMEM_STRUCT_SENSORTYPE_ADCCONFIG[SENSORTYPE_NUM] =
 {
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
-    {ADS1220_GAIN_1, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//SENSORTYPE_PT100_3851
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//SENSORTYPE_PT200_3851
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//SENSORTYPE_PT500_3851
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//SENSORTYPE_PT1000_3851
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//Ni100
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//Ni120
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//Ni500
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//Ni1000
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//Ni100
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//Ni120
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//Ni500
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//Ni1000
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//Cu50
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//Cu100
+    {ADS1220_GAIN_4, ADS1220_BYPASSPGA_ENABLE},//Cu1000
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//R600
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//R1000
+
+    {ADS1220_GAIN_64, ADS1220_BYPASSPGA_ENABLE},//Pt50
 };
 
-STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG GetSensorTypeChannelAdcConfig(int16_t RtdType, int16_t ChnlIndex)
+STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG GetSensorTypeChannelAdcConfig(uint32_t RtdType, EnumSensorChannelIndex SensorChannelIndex)
 {
     STRUCT_SENSORTYPE_ADCCONFIG* pSensorTypeAdcConfig = (STRUCT_SENSORTYPE_ADCCONFIG*)&PROGMEM_STRUCT_SENSORTYPE_ADCCONFIG[RtdType];
 
     STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG SensorTypeChannelAdcConfig;
     SensorTypeChannelAdcConfig.Gain = pSensorTypeAdcConfig->Gain;
     SensorTypeChannelAdcConfig.BypassPGA = pSensorTypeAdcConfig->BypassPGA;
-    switch(ChnlIndex)
+    switch(SensorChannelIndex)
     {
-    case 0:
+    case SENSOR_CHANNEL_INDEX_0:
     {
         SensorTypeChannelAdcConfig.Mux = ADS1220_MUX_0_1;
         break;
     }
-    case 1:
+    case SENSOR_CHANNEL_INDEX_1:
     {
         SensorTypeChannelAdcConfig.Mux = ADS1220_MUX_2_3;
         break;

@@ -22,7 +22,7 @@
 #endif
 
 #ifndef ADC_BUFFER_INITIAL_VALUE
-#define ADC_BUFFER_INITIAL_VALUE   (-32768.0f)  /* 无效/初始值 */
+#define ADC_BUFFER_INITIAL_VALUE   (-8388607.0f)  /* 无效/初始值 */
 #endif
 
 /* ----------------------- 数据结构 ----------------------- */

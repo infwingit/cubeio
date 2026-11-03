@@ -65,6 +65,13 @@ typedef enum EnumSensorMeasureStatus
     SensorMeasureStatusFail,
 } EnumSensorMeasureStatus;
 
+typedef enum EnumChannelDataMode
+{
+    MEASUREMODE_TEMP = 0,
+    MEASUREMODE_VOL,
+    MEASUREMODE_VOL_CALIB_SYSOFFSET,
+} EnumMeasurementMode;
+
 typedef struct MEASURE_VALUE
 {
     uint16_t SensorStatus;
@@ -75,6 +82,7 @@ typedef struct MEASURE_VALUE
     EnumSensorMeasureStatus SensorMeasureStatus;//测量状态标志，供主机读取用，无其他流程控制作用
     uint16_t ADS1220ConvTimeoutIn10ms;//判断是否达到了需要的滤波次数
 
+    //环境温度相关，板上温度传感器，用于热电偶冷端补偿
     int16_t TempStatusADS1220;//0:正常， >1:异常
     int16_t TempStatusM1601;//0:正常， >1:异常
     float ADS1220TempC;
@@ -82,9 +90,14 @@ typedef struct MEASURE_VALUE
     float FinalTempC;
 
     //通道数据转换相关
-    int16_t ChnlIndexCurrent;
-    int16_t ChnlFilterOrder;
-    int16_t ChnlFilterOrderCounter;
+    EnumSensorChannelIndex SensorChnlIndexCurrent;//当前正在转换的通道号
+    uint32_t ChnlFilterOrder;//当前正在转换的通道，滤波次数
+    uint32_t ChnlFilterOrderCounter;//当前正在转换的通道，滤波次数计数
+    int32_t AdcSystemOffset_100mv;//保留，暂时不用
+    int32_t AdcSystemOffset_1000mv;//保留，暂时不用
+    int32_t EnvTempAdc;//热电偶冷端补偿用，热电阻不用
+    float EnvTemp;//热电偶冷端补偿用，热电阻不用
+    STRUCT_SENSOR_CHANNEL_DATA SensorChnlData[SENSOR_CHANNEL_SIZE_MAXSUPPORT];
 
     //操作状态
     uint8_t FactoryResetStatus;
@@ -103,11 +116,8 @@ typedef struct MEASURE_VALUE
     uint32_t measTimeChannelWaitStable;
     uint32_t measTimeChannelStartConv;
     uint32_t measTimeChannelReadConv;
-		uint32_t measTimeChannelCalc;
+    uint32_t measTimeChannelCalc;
     uint32_t measTimeCompleted;
-
-    STRUCT_CHANNEL_STATUS g_chnlStatus[SENSOR_CHANNEL_SIZE_MAXSUPPORT];
-    STRUCT_ADC_STATUS g_adcStatus;
 } MEASURE_VALUE;
 extern MEASURE_VALUE g_MValue;
 
@@ -120,9 +130,9 @@ extern int16_t SensorMeasureTempStartM1601Async(void);
 extern int16_t SensorMeasureTempStartADS1220Async(void);
 extern int16_t SensorMeasureTempReadADS1220Async(uint8_t* pIsConversionDone, float* pTemp);
 extern int16_t SensorMeasureTempCalcAmbientAsync(void);
-extern int16_t SensorMeasureChannelInitAsync(int16_t channelIndex);
-extern int16_t SensorMeasureChannelReadConvAsync(uint8_t* pIsConversionDone, int32_t* pData);
-extern int16_t SensorMeasureChannelCalcAsync(int16_t channelIndex);
+extern int16_t SensorMeasureChannelInitAsync(EnumSensorChannelIndex SensorChnlIndex);
+extern int16_t SensorMeasureChannelReadConvAsync(uint8_t* pIsConversionDone, int32_t* pRawAdValue);
+extern int16_t SensorMeasureChannelCalcAsync(EnumSensorChannelIndex SensorChnlIndex);
 
 #endif /* GLOBALS_H_ */
 

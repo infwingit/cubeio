@@ -26,7 +26,7 @@ int16_t ADS1220_Init(uint8_t gain, uint8_t dataRate)
     ADS1220_WriteRegister(ADS1220_CONF_REG_1, reg1_write);
     uint8_t reg1_read = ADS1220_ReadRegister(ADS1220_CONF_REG_1);
 
-    uint8_t reg2_write = ADS1220_VREF_REFP1_REFN1 | ADS1220_50HZ_60HZ | ADS1220_SWITCH | ADS1220_IDAC_OFF;
+    uint8_t reg2_write = ADS1220_VREF_REFP0_REFN0 | ADS1220_50HZ_60HZ | ADS1220_ALWAYS_OPEN | ADS1220_IDAC_OFF;
     ADS1220_WriteRegister(ADS1220_CONF_REG_2, reg2_write);
     uint8_t reg2_read = ADS1220_ReadRegister(ADS1220_CONF_REG_2);
 
@@ -205,14 +205,14 @@ int16_t ADS1220_ReadRawAd_ByRData_CheckingPinDoutDrdy(uint8_t* pIsConversionDone
 int16_t ADS1220_ReadAd(int32_t* pAdValue)
 {
     int16_t errorCode = 0;
-    int32_t rawAD = 0;
+    int32_t RawAdValue = 0;
     uint8_t isConversionDone = 0;
     uint8_t timeOutCounter = 100;
 
     while((timeOutCounter--) > 0)
     {
         _delay_ms(1);
-        errorCode += ADS1220_ReadRawAd_ByRData_CheckingPinDoutDrdy(&isConversionDone, &rawAD);
+        errorCode += ADS1220_ReadRawAd_ByRData_CheckingPinDoutDrdy(&isConversionDone, &RawAdValue);
         if(isConversionDone != 0)
         {
             break;
@@ -226,7 +226,7 @@ int16_t ADS1220_ReadAd(int32_t* pAdValue)
 
     if(errorCode == 0)
     {
-        *pAdValue = rawAD;
+        *pAdValue = RawAdValue;
     }
     return errorCode;
 }

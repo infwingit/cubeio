@@ -77,10 +77,10 @@ typedef struct STRUCT_CHANNEL_ITEM_CONFIG
     int32_t TOffset;
     uint32_t ChnlEnable;
     uint32_t CjcEnable;
-    int32_t calibPoint100mv_1;
-    int32_t calibPoint100mv_2;
-    int32_t calibPoint1000mv_1;
-    int32_t calibPoint1000mv_2;
+    int32_t CalibPt_AdcInputRangeSmall_Lower;//ADC_INPUT_RANGE_SMALL
+    int32_t CalibPt_AdcInputRangeSmall_Upper;
+    int32_t CalibPt_AdcInputRangeLarge_Lower;//ADC_INPUT_RANGE_LARGE
+    int32_t CalibPt_AdcInputRangeLarge_Upper;
 } STRUCT_CHANNEL_ITEM_CONFIG;
 
 #define SENSOR_CHANNEL_SIZE_MAXSUPPORT				16  //本程序支持的传感器输入通道数量

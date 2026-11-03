@@ -5,24 +5,8 @@
 #include "eeprom.h"
 #include "ads1220.h"
 
-#define ADCSPAN_100MV    					0
-#define ADCSPAN_1000MV   					1
-
-//Value for STRUCT_CHANNEL_STATUS.value and STRUCT_CHANNEL_STATUS.valueCalibed
-#define CHNL_STATUS_SNROHM_OVHI_VALUE 0xFFFF
-#define CHNL_STATUS_SNROHM_OVLO_VALUE 0xFFFF
-#define CHNL_STATUS_SNR_OVHI_VALUE -32768
-#define CHNL_STATUS_SNR_OVLO_VALUE -32768
-#define CHNL_STATUS_ADC_OVHI_VALUE 8388607
-#define CHNL_STATUS_ADC_OVLO_VALUE -8388608
-
-
-//Value for STRUCT_CHANNEL_STATUS.status
-#define CHNL_STATUS_SNR_BURNOUT 0x01
-#define CHNL_STATUS_ADC_OVHI    0x02
-#define CHNL_STATUS_ADC_OVLO    0x04
-#define CHNL_STATUS_SNR_OVHI    0x08
-#define CHNL_STATUS_SNR_OVLO    0x10
+#define ADC_INPUT_RANGE_SMALL    					0
+#define ADC_INPUT_RANGE_LARGE   					1
 
 //------------------------------------------
 //Sensor type define
@@ -340,57 +324,53 @@ extern const int32_t PROGMEM_SENSOR_ADC_RANGE[SENSORTYPE_NUM][2];
 //Sensor range, for use of OVER RANGE detection
 //The value is (original_value * 10)
 //------------------------------------------
-extern const int16_t PROGMEM_SENSOR_RESULT_RANGE[SENSORTYPE_NUM][2];
+extern const int32_t PROGMEM_SENSOR_RESULT_RANGE[SENSORTYPE_NUM][2];
 
-int32_t adcCalibSystemOffset(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t systemOffset, int32_t adcValue);
-int32_t adcTwoPointCalib(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t value);
-float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t adcValue);
-int16_t adcCalcEngCalibedSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int16_t chnlValue);
-int16_t adcCheckAdcOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t adcVaule);
-int16_t adcCheckSensorValueOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int16_t value);
+int32_t adcCalibSystemOffset(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t systemOffset, int32_t RawAdcValue);
+int32_t adcTwoPointCalib(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t RawAdcValue);
+float adcCalcSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t RawAdcValueCalibed);
+int32_t adcCalcEngCalibedSensorValue(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t Value);
+int32_t adcCheckAdcOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t RawAdcValue);
+int32_t adcCheckSensorValueOverRange(STRUCT_CHANNEL_ITEM_CONFIG* pChannelItemConfig, int32_t Value);
 
-typedef enum EnumMeasurementMode
+typedef enum EnumSensorChannelIndex
 {
-    MEASUREMODE_TEMP = 0,
-    MEASUREMODE_VOL,
-    MEASUREMODE_VOL_CALIB_SYSOFFSET,
-} EnumMeasurementMode;
-
-typedef enum EnumChannelNumber
-{
-    ADC_PHYSCAL_CHNL_MEAS0 = 0x0000,
-    ADC_PHYSCAL_CHNL_MEAS1 = 0x0001,
-    ADC_PHYSCAL_CHNL_MEASEND = (SENSOR_CHANNEL_SIZE_THISDEVICE - 1),
-} EnumChannelNumber;
-
-//--------------------------------------
-//Structs to hold adc related variables
-//--------------------------------------
-typedef struct STRUCT_ADC_STATUS
-{
-    //save CSR config for ADC CSR register
-    uint16_t csr[8];
-    EnumMeasurementMode MeasurementMode;
-    uint8_t FilterOrderCounter;
-    uint8_t CurrentChnlNbr;//current channel
-    int32_t adcSummedValue;
-    int32_t adcCurrentValue;
-    int32_t systemOffset_100mv;
-    int32_t systemOffset_1000mv;
-    int32_t envAdc;
-    int16_t envTemp;//*10
-} STRUCT_ADC_STATUS;
+    SENSOR_CHANNEL_INDEX_0 = 0x0000,
+    SENSOR_CHANNEL_INDEX_1 = 0x0001,
+    SENSOR_CHANNEL_INDEX_END = SENSOR_CHANNEL_SIZE_THISDEVICE,
+} EnumSensorChannelIndex;
 
 //--------------------------------------
 //Structs to hold channel status
 //--------------------------------------
-typedef struct STRUCT_CHANNEL_STATUS
+//Value for STRUCT_SENSOR_CHANNEL_DATA.RawAdcValue and STRUCT_SENSOR_CHANNEL_DATA.Value
+#define SENSOR_CHNL_STATUS_SNROHM_OVHI_VALUE 	0xFFFF
+#define SENSOR_CHNL_STATUS_SNROHM_OVLO_VALUE 	0xFFFF
+#define SENSOR_CHNL_STATUS_SNR_OVHI_VALUE 		-32768
+#define SENSOR_CHNL_STATUS_SNR_OVLO_VALUE 		-32768
+#define SENSOR_CHNL_STATUS_SNR_ERROR_VALUE 		-32768
+#define SENSOR_CHNL_STATUS_ADC_OVHI_VALUE 		8388607
+#define SENSOR_CHNL_STATUS_ADC_OVLO_VALUE 		-8388608
+#define SENSOR_CHNL_STATUS_ADC_ERROR_VALUE 		-8388608
+
+//Value for STRUCT_SENSOR_CHANNEL_DATA.SensorChannelStatus
+typedef enum EnumSensorChannelStatus
 {
-    uint8_t status;
+    SENSOR_CHNL_STATUS_SNR_BURNOUT= 0x01,
+    SENSOR_CHNL_STATUS_ADC_OVHI   = 0x02,
+    SENSOR_CHNL_STATUS_ADC_OVLO   = 0x04,
+    SENSOR_CHNL_STATUS_SNR_OVHI  =  0x08,
+    SENSOR_CHNL_STATUS_SNR_OVLO  =  0x10,
+} EnumSensorChannelStatus;
+
+typedef struct STRUCT_SENSOR_CHANNEL_DATA
+{
+    EnumSensorChannelStatus SensorChannelStatus;
     int32_t RawAdcValue;
-    int32_t value;
-    int32_t valueCalibed;
-} STRUCT_CHANNEL_STATUS;
+    int32_t RawAdcValueCalibed;
+    int32_t Value;
+    int32_t ValueOffseted;
+} STRUCT_SENSOR_CHANNEL_DATA;
 
 //传感器类型对应的ADC配置
 typedef struct STRUCT_SENSORTYPE_ADCCONFIG
@@ -409,6 +389,6 @@ typedef struct STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG
     uint8_t Reserved0;
     uint8_t Reserved1;
 } STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG;
-extern STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG GetSensorTypeChannelAdcConfig(int16_t RtdType, int16_t ChnlIndex);
+extern STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG GetSensorTypeChannelAdcConfig(uint32_t RtdType, EnumSensorChannelIndex SensorChannelIndex);
 
 #endif

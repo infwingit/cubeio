@@ -18,8 +18,8 @@
 
 /* ----------------------- 通道静态存储 ----------------------- */
 /* 二维数组：第一维=通道，第二维=通道内滑动窗口数据 */
-static float myBufferTemp[ADC_BUFFER_N_CHANNELS][ADC_BUFFER_SIZE];
-static MyAdcBuffer myAdcBuffer[ADC_BUFFER_N_CHANNELS];
+float myBufferTemp[ADC_BUFFER_N_CHANNELS][ADC_BUFFER_SIZE];
+MyAdcBuffer myAdcBuffer[ADC_BUFFER_N_CHANNELS];
 
 /* ----------------------- 内部工具 ----------------------- */
 /* 返回通道在合法范围内；非法通道返回 0xFFFF，由调用方判断 */

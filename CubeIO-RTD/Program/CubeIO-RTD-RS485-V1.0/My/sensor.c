@@ -125,18 +125,28 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
     }
     case SensorMeasureStepChannelPrepareConv:
     {
-        g_MValue.ChnlIndexCurrent = 0;
+        g_MValue.SensorChnlIndexCurrent = SENSOR_CHANNEL_INDEX_0;//从第0通道开始（新一轮）转换
         g_MValue.SensorMeasureStep = SensorMeasureStepChannelInitConv;
         g_MValue.measTimeChannelPrepareConv = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         break;
     }
     case SensorMeasureStepChannelInitConv:
     {
-        g_MValue.ChnlFilterOrder = (int16_t) eeprom_readint32((uint32_t*) & (eepChannelConfig.ItemConfigs[g_MValue.ChnlIndexCurrent].FilterOrder));
-        g_MValue.ChnlFilterOrderCounter = 0;
+        //判断当前通道是否被禁用
+        uint32_t  ChnlEnable = (uint32_t) eeprom_readint32((uint32_t*) & (eepChannelConfig.ItemConfigs[g_MValue.SensorChnlIndexCurrent].ChnlEnable));
+        if(ChnlEnable == CONST_CHNL_ENABLE_DISABLE)
+        {
+            //如果被禁用则不进行转换，直接跳转到下一通道
+        }
+        else
+        {
+            //当前通道需要进行转换
+            g_MValue.ChnlFilterOrder = (uint32_t) eeprom_readint32((uint32_t*) & (eepChannelConfig.ItemConfigs[g_MValue.SensorChnlIndexCurrent].FilterOrder));
+            g_MValue.ChnlFilterOrderCounter = 0;
 
-        errorCode += SensorMeasureChannelInitAsync(g_MValue.ChnlIndexCurrent);
-        g_MValue.SensorMeasureStep = SensorMeasureStepChannelWaitStableAsync;
+            errorCode += SensorMeasureChannelInitAsync(g_MValue.SensorChnlIndexCurrent);
+            g_MValue.SensorMeasureStep = SensorMeasureStepChannelWaitStableAsync;
+        }
         g_MValue.measTimeChannelInitConv = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         break;
     }
@@ -144,7 +154,7 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
     {
         _delay_ms(10);//延时等待MUX与模拟量输入稳定
         g_MValue.SensorMeasureStep = SensorMeasureStepChannelStartConvAsync;
-				g_MValue.measTimeChannelWaitStable = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
+        g_MValue.measTimeChannelWaitStable = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         break;
     }
     case SensorMeasureStepChannelStartConvAsync:
@@ -164,8 +174,8 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
         if(isConversionDone != 0)
         {
             //未超时且转换完成
-            adc_add_buffer_n(0, (float)RawAdcValue, 1000);
-            g_MValue.g_chnlStatus[g_MValue.ChnlIndexCurrent].RawAdcValue = RawAdcValue;
+            adc_add_buffer_n(g_MValue.SensorChnlIndexCurrent, (float)RawAdcValue, 128);
+            g_MValue.SensorChnlData[g_MValue.SensorChnlIndexCurrent].RawAdcValue = RawAdcValue;
 
             g_MValue.SensorMeasureStep = SensorMeasureStepChannelCalcAsync;
             g_MValue.measTimeChannelReadConv = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
@@ -178,7 +188,7 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
             if((g_MValue.ADS1220ConvTimeoutIn10ms--) == 0)
             {
                 //ADC转换超时，在外部处理
-                g_MValue.g_chnlStatus[g_MValue.ChnlIndexCurrent].RawAdcValue = SENSOR_ERRORCODE_BAD_RawAdcValue;
+                g_MValue.SensorChnlData[g_MValue.SensorChnlIndexCurrent].RawAdcValue = SENSOR_ERRORCODE_BAD_RawAdcValue;
                 errorCode = 1;
             }
         }
@@ -186,28 +196,28 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
     }
     case SensorMeasureStepChannelCalcAsync:
     {
-        errorCode += SensorMeasureChannelCalcAsync(g_MValue.ChnlIndexCurrent);
+        errorCode += SensorMeasureChannelCalcAsync(g_MValue.SensorChnlIndexCurrent);
 
-        //判断是否所有通道转换完成
-        if(g_MValue.ChnlIndexCurrent < SENSOR_CHANNEL_SIZE_THISDEVICE)
+        //判断当前通道是否完成需要的滤波次数转换
+        if(g_MValue.ChnlFilterOrderCounter < g_MValue.ChnlFilterOrder)
         {
-            //未完成所有通道
-            //判断当前通道是否完成需要的滤波次数转换
-            if(g_MValue.ChnlFilterOrderCounter < g_MValue.ChnlFilterOrder)
-            {
-                g_MValue.SensorMeasureStep = SensorMeasureStepChannelStartConvAsync;
-            }
-            else
-            {
-                g_MValue.ChnlIndexCurrent++;
-                g_MValue.SensorMeasureStep = SensorMeasureStepChannelInitConv;
-            }
+            g_MValue.SensorMeasureStep = SensorMeasureStepChannelStartConvAsync;
         }
         else
         {
-            //已完成所有通道，转换结束
-            g_MValue.SensorMeasureStep = SensorMeasureStepCompleted;
-            g_MValue.measTimeChannelCalc = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
+            g_MValue.SensorChnlIndexCurrent++;
+            //判断是否所有通道转换完成
+            if(g_MValue.SensorChnlIndexCurrent < SENSOR_CHANNEL_INDEX_END)
+            {
+                //未完成所有通道
+                g_MValue.SensorMeasureStep = SensorMeasureStepChannelInitConv;
+            }
+            else
+            {
+                //已完成所有通道，转换结束
+                g_MValue.SensorMeasureStep = SensorMeasureStepCompleted;
+                g_MValue.measTimeChannelCalc = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
+            }
         }
         break;
     }
@@ -258,10 +268,10 @@ int16_t SensorMeasureTempReadADS1220Async(uint8_t* pIsConversionDone, float* pTe
 {
     int16_t errorCode = 0;
 
-    int32_t rawAD = 0;
+    int32_t RawAdValue = 0;
     uint8_t isConversionDone = 0;
 
-    errorCode += ADS1220_ReadRawAd_ByRData_CheckingPinDoutDrdy(&isConversionDone, &rawAD);
+    errorCode += ADS1220_ReadRawAd_ByRData_CheckingPinDoutDrdy(&isConversionDone, &RawAdValue);
     *pIsConversionDone = isConversionDone;
     if(isConversionDone == 0)
     {
@@ -271,7 +281,7 @@ int16_t SensorMeasureTempReadADS1220Async(uint8_t* pIsConversionDone, float* pTe
 
     if(errorCode == 0)
     {
-        int16_t result = rawAD >> 10;//24位数据的高14位为温度数据
+        int16_t result = RawAdValue >> 10;//24位数据的高14位为温度数据
         //判断第14位是0还是1
         if(result & 0x2000)
         {
@@ -324,24 +334,30 @@ int16_t SensorMeasureTempCalcAmbientAsync(void)
 
     return errorCode;
 }
-int16_t SensorMeasureChannelInitAsync(int16_t channelIndex)
+int16_t SensorMeasureChannelInitAsync(EnumSensorChannelIndex SensorChnlIndex)
 {
     int16_t errorCode = 0;
-    uint32_t RtdType = (uint32_t) eeprom_readint32((uint32_t*) & (eepChannelConfig.ItemConfigs[channelIndex].RtdType));
+    if(SensorChnlIndex>=SENSOR_CHANNEL_INDEX_END)
+    {
+        errorCode =1;
+        return errorCode;
+    }
+
+    uint32_t RtdType = (uint32_t) eeprom_readint32((uint32_t*) & (eepChannelConfig.ItemConfigs[SensorChnlIndex].RtdType));
     STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG SensorTypeChannelAdcConfig;
 
-    SensorTypeChannelAdcConfig = GetSensorTypeChannelAdcConfig(RtdType, channelIndex);
+    SensorTypeChannelAdcConfig = GetSensorTypeChannelAdcConfig(RtdType, SensorChnlIndex);
     ADS1220_SetReg0_Mux_Gain_BypassPGA(SensorTypeChannelAdcConfig.Mux, SensorTypeChannelAdcConfig.Gain, SensorTypeChannelAdcConfig.BypassPGA);
     return errorCode;
 }
 
-int16_t SensorMeasureChannelReadConvAsync(uint8_t* pIsConversionDone, int32_t* pData)
+int16_t SensorMeasureChannelReadConvAsync(uint8_t* pIsConversionDone, int32_t* pRawAdValue)
 {
     int16_t errorCode = 0;
-    int32_t rawAD = 0;
+    int32_t RawAdValue = 0;
     uint8_t isConversionDone = 0;
 
-    errorCode += ADS1220_ReadRawAd_ByRData_CheckingPinDoutDrdy(&isConversionDone, &rawAD);
+    errorCode += ADS1220_ReadRawAd_ByRData_CheckingPinDoutDrdy(&isConversionDone, &RawAdValue);
     *pIsConversionDone = isConversionDone;
     if(isConversionDone == 0)
     {
@@ -352,23 +368,28 @@ int16_t SensorMeasureChannelReadConvAsync(uint8_t* pIsConversionDone, int32_t* p
     if(errorCode == 0)
     {
         //判断第24位是0还是1
-        if(rawAD & 0x800000)
+        if(RawAdValue & 0x800000)
         {
             //如果是1表示负数，扩展高位为1
-            rawAD |= 0xFF800000;
+            RawAdValue |= 0xFF800000;
         }
         else
         {
             //如果是0表示正数
-            rawAD = rawAD ;
+            RawAdValue = RawAdValue ;
         }
-        *pData = rawAD;
+        *pRawAdValue = RawAdValue;
     }
     return errorCode;
 }
 
-int16_t SensorMeasureChannelCalcAsync(int16_t channelIndex)
+int16_t SensorMeasureChannelCalcAsync(EnumSensorChannelIndex SensorChnlIndex)
 {
     int16_t errorCode = 0;
+    if(SensorChnlIndex>=SENSOR_CHANNEL_INDEX_END)
+    {
+        errorCode =1;
+        return errorCode;
+    }
     return errorCode;
 }

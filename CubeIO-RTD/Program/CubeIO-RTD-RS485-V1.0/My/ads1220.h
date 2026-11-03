@@ -167,11 +167,6 @@ typedef enum EnumAds1220DrdyMode
     ADS1220_DOUT_DRDY = 0x02
 } EnumAds1220DrdyMode;
 
-
-#define RAWADC_BUFFER_INITIAL_VALUE     	0x7FFFFFFF //2147483647
-#define RAWADC_BUFFER_SIZE 								128  // 数据缓冲区大小
-#define RAWADC_WINDOW_SIZE 								10   // 滑动窗口大小（最近的N个数据）
-
 int16_t ADS1220_Init(uint8_t gain, uint8_t dataRate);
 int16_t ADS1220_CheckHealth(void);
 int16_t ADS1220_Deinit(void);

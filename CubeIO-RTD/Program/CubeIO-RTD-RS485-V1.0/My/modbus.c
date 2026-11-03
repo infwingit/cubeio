@@ -282,14 +282,14 @@ void modbusRtu_3(STRUCT_USART_INFO* pCommInfo)
                     {
                         for(uint8_t k=0; k<SENSOR_CHANNEL_SIZE_MAXSUPPORT; k++)
                         {
-                            values[k] = (int16_t)(100.00 * 1.234);
+                            values[k] = (int16_t)(100.00 * g_MValue.SensorChnlData[k].ValueOffseted);
                         }
                     }
                     else
                     {
                         for(uint8_t k=0; k<SENSOR_CHANNEL_SIZE_MAXSUPPORT; k++)
                         {
-                            values[k] = (int16_t)(100.00 * 1.234);
+                            values[k] = (int16_t)(SENSOR_CHNL_STATUS_SNR_ERROR_VALUE);
                         }
                     }
 
@@ -336,14 +336,14 @@ void modbusRtu_3(STRUCT_USART_INFO* pCommInfo)
                 {
                     for(uint8_t k=0; k<SENSOR_CHANNEL_SIZE_MAXSUPPORT; k++)
                     {
-                        values[k] = (int16_t)(100.00 * 1.234);
+                        values[k] = g_MValue.SensorChnlData[k].ValueOffseted;
                     }
                 }
                 else
                 {
                     for(uint8_t k=0; k<SENSOR_CHANNEL_SIZE_MAXSUPPORT; k++)
                     {
-                        values[k] = (int16_t)(100.00 * 1.234);
+                        values[k] = (int16_t)(SENSOR_CHNL_STATUS_SNR_ERROR_VALUE);
                     }
                 }
 

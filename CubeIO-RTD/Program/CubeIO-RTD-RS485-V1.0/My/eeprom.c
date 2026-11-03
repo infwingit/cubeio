@@ -91,10 +91,10 @@ void eeprom_init(void)
             eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].TOffset), CONST_CHNL_TOFFSET_DEF);
             eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].ChnlEnable), CONST_CHNL_ENABLE_ENABLED);
             eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].CjcEnable), CONST_CHNL_CJC_ENABLED);
-            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].calibPoint100mv_1), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_100MV][0]);
-            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].calibPoint100mv_2), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_100MV][1]);
-            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].calibPoint1000mv_1), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_1000MV][0]);
-            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].calibPoint1000mv_2), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADCSPAN_1000MV][1]);
+            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].CalibPt_AdcInputRangeSmall_Lower), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_SMALL][0]);
+            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].CalibPt_AdcInputRangeSmall_Upper), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_SMALL][1]);
+            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].CalibPt_AdcInputRangeLarge_Lower), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_LARGE][0]);
+            eeprom_writeint32((uint32_t*) & (eepChannelConfig.ItemConfigs[i].CalibPt_AdcInputRangeLarge_Upper), PROGMEM_CALIBPOINT_IDEAL_VALUE[ADC_INPUT_RANGE_LARGE][1]);
         }
         crc32EepromAppend((uint32_t*) &eepChannelConfig, sizeof(STRUCT_CHANNEL_CONFIG) / sizeof(uint8_t));
     }

@@ -25,9 +25,6 @@ int16_t validateSensorCfgCompensationCoefSalinity(uint16_t value);
 int16_t validateSensorCfgCompensationCoefTDS(uint16_t value);
 int16_t validateSensorCfgDefault(uint16_t value);
 
-int16_t validateCalibUserCalibECFor1Pt(int32_t value);
-int16_t validateCalibUserCalibECFor2Pt(uint16_t calibPointIndex, int32_t value);
-
 int16_t validateCommParamProtocol(uint8_t value);
 int16_t validateCommParamSlaveAddress(uint8_t value);
 int16_t validateCommParamBaudrate(uint8_t value);
