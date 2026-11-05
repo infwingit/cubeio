@@ -253,30 +253,30 @@ void modbusRtu_3(STRUCT_USART_INFO* pCommInfo)
 
             switch(firstWord)
             {
-            case MBR_MEASVALUE_CHN00:
-            case MBR_MEASVALUE_CHN01:
-            case MBR_MEASVALUE_CHN02:
-            case MBR_MEASVALUE_CHN03:
-            case MBR_MEASVALUE_CHN04:
-            case MBR_MEASVALUE_CHN05:
-            case MBR_MEASVALUE_CHN06:
-            case MBR_MEASVALUE_CHN07:
-            case MBR_MEASVALUE_CHN08:
-            case MBR_MEASVALUE_CHN09:
-            case MBR_MEASVALUE_CHN10:
-            case MBR_MEASVALUE_CHN11:
-            case MBR_MEASVALUE_CHN12:
-            case MBR_MEASVALUE_CHN13:
-            case MBR_MEASVALUE_CHN14:
-            case MBR_MEASVALUE_CHN15:
+            case MBR_MSV_CHN00:
+            case MBR_MSV_CHN01:
+            case MBR_MSV_CHN02:
+            case MBR_MSV_CHN03:
+            case MBR_MSV_CHN04:
+            case MBR_MSV_CHN05:
+            case MBR_MSV_CHN06:
+            case MBR_MSV_CHN07:
+            case MBR_MSV_CHN08:
+            case MBR_MSV_CHN09:
+            case MBR_MSV_CHN10:
+            case MBR_MSV_CHN11:
+            case MBR_MSV_CHN12:
+            case MBR_MSV_CHN13:
+            case MBR_MSV_CHN14:
+            case MBR_MSV_CHN15:
             {
-                int16_t values[MBR_MEAS_NUM];
-                for(i = 0; i < MBR_MEAS_NUM; i++)
+                int16_t values[MBR_MSV_NUM];
+                for(i = 0; i < MBR_MSV_NUM; i++)
                 {
                     values[i] = 0;
                 }
 
-                if((firstWord - MBR_MEAS_BASE + nbrWords) <= MBR_MEAS_NUM)
+                if((firstWord - MBR_MSV_BASE + nbrWords) <= MBR_MSV_NUM)
                 {
                     if(g_MValue.SensorStatus == SENSOR_STATUS_OK)
                     {
@@ -293,7 +293,7 @@ void modbusRtu_3(STRUCT_USART_INFO* pCommInfo)
                         }
                     }
 
-                    int16_t startIdx = firstWord - MBR_MEAS_BASE;
+                    int16_t startIdx = firstWord - MBR_MSV_BASE;
                     for(i = 0; i < nbrWords; i++)
                     {
                         pResponse[3 + 2 * i] = HI8_UINT(values[startIdx]);
@@ -307,27 +307,27 @@ void modbusRtu_3(STRUCT_USART_INFO* pCommInfo)
                 }
                 break;
             }
-            case MBR_MEAS_FLOAT_CHN00:
-            case MBR_MEAS_FLOAT_CHN01:
-            case MBR_MEAS_FLOAT_CHN02:
-            case MBR_MEAS_FLOAT_CHN03:
-            case MBR_MEAS_FLOAT_CHN04:
-            case MBR_MEAS_FLOAT_CHN05:
-            case MBR_MEAS_FLOAT_CHN06:
-            case MBR_MEAS_FLOAT_CHN07:
-            case MBR_MEAS_FLOAT_CHN08:
-            case MBR_MEAS_FLOAT_CHN09:
-            case MBR_MEAS_FLOAT_CHN10:
-            case MBR_MEAS_FLOAT_CHN11:
-            case MBR_MEAS_FLOAT_CHN12:
-            case MBR_MEAS_FLOAT_CHN13:
-            case MBR_MEAS_FLOAT_CHN14:
-            case MBR_MEAS_FLOAT_CHN15:
+            case MBR_MSV_FLOAT_CHN00:
+            case MBR_MSV_FLOAT_CHN01:
+            case MBR_MSV_FLOAT_CHN02:
+            case MBR_MSV_FLOAT_CHN03:
+            case MBR_MSV_FLOAT_CHN04:
+            case MBR_MSV_FLOAT_CHN05:
+            case MBR_MSV_FLOAT_CHN06:
+            case MBR_MSV_FLOAT_CHN07:
+            case MBR_MSV_FLOAT_CHN08:
+            case MBR_MSV_FLOAT_CHN09:
+            case MBR_MSV_FLOAT_CHN10:
+            case MBR_MSV_FLOAT_CHN11:
+            case MBR_MSV_FLOAT_CHN12:
+            case MBR_MSV_FLOAT_CHN13:
+            case MBR_MSV_FLOAT_CHN14:
+            case MBR_MSV_FLOAT_CHN15:
             {
-                float values[MBR_MEAS_FLOAT_NUM / 2];
+                float values[MBR_MSV_FLOAT_NUM / 2];
                 uint8_t* pFloatByte;
 
-                for(i = 0; i < MBR_MEAS_FLOAT_NUM / 2; i++)
+                for(i = 0; i < MBR_MSV_FLOAT_NUM / 2; i++)
                 {
                     values[i] = 0;
                 }
@@ -336,7 +336,7 @@ void modbusRtu_3(STRUCT_USART_INFO* pCommInfo)
                 {
                     for(uint8_t k=0; k<SENSOR_CHANNEL_SIZE_MAXSUPPORT; k++)
                     {
-                        values[k] = g_MValue.SensorChnlData[k].ValueOffseted;
+                        values[k] = g_MValue.SensorChnlData[k].RawAdcValue;
                     }
                 }
                 else
@@ -347,8 +347,8 @@ void modbusRtu_3(STRUCT_USART_INFO* pCommInfo)
                     }
                 }
 
-                uint8_t startChnl = firstWord - MBR_MEAS_FLOAT_BASE;
-                if((startChnl + nbrWords) <= MBR_MEAS_FLOAT_NUM && (nbrWords % 2 == 0))
+                uint8_t startChnl = firstWord - MBR_MSV_FLOAT_BASE;
+                if((startChnl + nbrWords) <= MBR_MSV_FLOAT_NUM && (nbrWords % 2 == 0))
                 {
                     uint8_t floatArrayStartIndex = startChnl / 2;
                     uint8_t floatArrayToReadCount = nbrWords / 2;

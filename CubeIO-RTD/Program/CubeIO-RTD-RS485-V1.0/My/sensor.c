@@ -71,56 +71,56 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
     case SensorMeasureStepInit:
     {
         errorCode += SensorInitPowerOn();
-        g_MValue.SensorMeasureStep = SensorMeasureStepTempStartADS1220Async;
+        g_MValue.SensorMeasureStep = SensorMeasureStepEnvTempStartADS1220Async;
         break;
     }
-    case SensorMeasureStepTempStartM1601Async:
+    case SensorMeasureStepEnvTempStartM1601Async:
     {
         g_MValue.measTimeStart = RTC_IF_GetTimerValue();
 
-        g_MValue.TempStatusM1601 = SensorMeasureTempStartM1601Async();
-        g_MValue.SensorMeasureStep = SensorMeasureStepTempStartADS1220Async;
+        g_MValue.EnvTempStatusM1601 = SensorMeasureEnvTempStartM1601Async();
+        g_MValue.SensorMeasureStep = SensorMeasureStepEnvTempStartADS1220Async;
 
-        g_MValue.measTimeTempStartM1601 = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
+        g_MValue.measTimeEnvTempStartM1601 = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         break;
     }
-    case SensorMeasureStepTempStartADS1220Async:
+    case SensorMeasureStepEnvTempStartADS1220Async:
     {
-        errorCode += SensorMeasureTempStartADS1220Async();//这里会检验ADS1220的通信是否正常，以在外部设置传感器状态
-        g_MValue.SensorMeasureStep = SensorMeasureStepTempReadADS1220Async;
+        errorCode += SensorMeasureEnvTempStartADS1220Async();//这里会检验ADS1220的通信是否正常，以在外部设置传感器状态
+        g_MValue.SensorMeasureStep = SensorMeasureStepEnvTempReadADS1220Async;
         g_MValue.ADS1220ConvTimeoutIn10ms = ADS1220_CONV_TIMEOUT_IN_10MS;
-        g_MValue.measTimeTempStartADS1220 = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
+        g_MValue.measTimeEnvTempStartADS1220 = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         break;
     }
-    case SensorMeasureStepTempReadADS1220Async:
+    case SensorMeasureStepEnvTempReadADS1220Async:
     {
         uint8_t isConversionDone = 1;
-        errorCode += SensorMeasureTempReadADS1220Async(&isConversionDone, &g_MValue.ADS1220TempC);
+        errorCode += SensorMeasureEnvTempReadADS1220Async(&isConversionDone, &g_MValue.EnvTempAds1220);
         if(isConversionDone)
         {
-            g_MValue.SensorMeasureStep = SensorMeasureStepTempCalcAmbientAsync;
-            g_MValue.TempStatusADS1220 = 0;
+            g_MValue.SensorMeasureStep = SensorMeasureStepEnvTempCalcAsync;
+            g_MValue.EnvTempStatusAds1220 = 0;
             ADS1220_SetReg1EnableTemperatureSensor(ADS1220_TEMPSENSOR_DISABLE);
-            g_MValue.measTimeTempReadADS1220 = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
+            g_MValue.measTimeEnvTempReadADS1220 = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         }
         else
         {
-            g_MValue.SensorMeasureStep = SensorMeasureStepTempReadADS1220Async;
+            g_MValue.SensorMeasureStep = SensorMeasureStepEnvTempReadADS1220Async;
             _delay_ms(10);
             if((g_MValue.ADS1220ConvTimeoutIn10ms--) == 0)
             {
-                //ADC转换超时，在外部处理
-                g_MValue.TempStatusADS1220 = 1;
-                errorCode = 1;
+                //ADC转换超时，设置错误标志
+                g_MValue.EnvTempStatusAds1220 = 1;
+                errorCode += 1;
             }
         }
         break;
     }
-    case SensorMeasureStepTempCalcAmbientAsync:
+    case SensorMeasureStepEnvTempCalcAsync:
     {
-        errorCode += SensorMeasureTempCalcAmbientAsync();
+        errorCode += SensorMeasureEnvTempCalcAsync();
         g_MValue.SensorMeasureStep = SensorMeasureStepChannelPrepareConv;
-        g_MValue.measTimeTempCalcAmbient = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
+        g_MValue.measTimeEnvTempCalc = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         break;
     }
     case SensorMeasureStepChannelPrepareConv:
@@ -175,8 +175,6 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
         {
             //未超时且转换完成
             adc_add_buffer_n(g_MValue.SensorChnlIndexCurrent, (float)RawAdcValue, 128);
-            g_MValue.SensorChnlData[g_MValue.SensorChnlIndexCurrent].RawAdcValue = RawAdcValue;
-
             g_MValue.SensorMeasureStep = SensorMeasureStepChannelCalcAsync;
             g_MValue.measTimeChannelReadConv = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         }
@@ -188,7 +186,7 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
             if((g_MValue.ADS1220ConvTimeoutIn10ms--) == 0)
             {
                 //ADC转换超时，在外部处理
-                g_MValue.SensorChnlData[g_MValue.SensorChnlIndexCurrent].RawAdcValue = SENSOR_ERRORCODE_BAD_RawAdcValue;
+                g_MValue.SensorChnlData[g_MValue.SensorChnlIndexCurrent].RawAdcValue = SENSOR_CHNL_STATUS_ADC_ERROR_VALUE;
                 errorCode = 1;
             }
         }
@@ -205,6 +203,8 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
         }
         else
         {
+						g_MValue.SensorChnlData[g_MValue.SensorChnlIndexCurrent].RawAdcValue = adc_average_buffer_n(g_MValue.SensorChnlIndexCurrent);
+
             g_MValue.SensorChnlIndexCurrent++;
             //判断是否所有通道转换完成
             if(g_MValue.SensorChnlIndexCurrent < SENSOR_CHANNEL_INDEX_END)
@@ -224,7 +224,7 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
     case SensorMeasureStepCompleted:
     {
         //完成检测，重新开始
-        g_MValue.SensorMeasureStep = SensorMeasureStepTempStartM1601Async;
+        g_MValue.SensorMeasureStep = SensorMeasureStepEnvTempStartM1601Async;
         g_MValue.measTimeCompleted = RTC_IF_Convert_Tick2ms(RTC_IF_GetTimerValue() - g_MValue.measTimeStart);
         break;
     }
@@ -238,14 +238,14 @@ int16_t SensorMeasureAsync(EnumSensorMeasureStep* pSensorMeasureStepDone)
     return errorCode;
 }
 
-int16_t SensorMeasureTempStartM1601Async(void)
+int16_t SensorMeasureEnvTempStartM1601Async(void)
 {
     int16_t errorCode = 0;
-    errorCode = M1601_Measure(&(g_MValue.M1601TempC));
+    errorCode = M1601_Measure(&(g_MValue.EnvTempM1601));
     return errorCode;
 }
 
-int16_t SensorMeasureTempStartADS1220Async(void)
+int16_t SensorMeasureEnvTempStartADS1220Async(void)
 {
     int16_t errorCode = 0;
 
@@ -264,7 +264,7 @@ int16_t SensorMeasureTempStartADS1220Async(void)
     return errorCode;
 }
 
-int16_t SensorMeasureTempReadADS1220Async(uint8_t* pIsConversionDone, float* pTemp)
+int16_t SensorMeasureEnvTempReadADS1220Async(uint8_t* pIsConversionDone, float* pTemp)
 {
     int16_t errorCode = 0;
 
@@ -298,7 +298,7 @@ int16_t SensorMeasureTempReadADS1220Async(uint8_t* pIsConversionDone, float* pTe
     return errorCode;
 }
 
-int16_t SensorMeasureTempCalcAmbientAsync(void)
+int16_t SensorMeasureEnvTempCalcAsync(void)
 {
     int16_t errorCode = 0;
     uint16_t tempSensor = eeprom_readint32((uint32_t*)&eepFactoryConfig.tempSensor);
@@ -311,14 +311,14 @@ int16_t SensorMeasureTempCalcAmbientAsync(void)
     float temperatureFinalCalibedC = 0.0;
 
     //计算temperatureFinalOrigC, temperatureFinalOrigF, temperatureFinalOrigK
-    if((tempSensor == CONST_TEMPSENSOR_M1601) && (g_MValue.TempStatusM1601 == 0))
+    if((tempSensor == CONST_TEMPSENSOR_M1601) && (g_MValue.EnvTempStatusM1601 == 0))
     {
         //如果选择M1601并且无异常
-        temperatureFinalOrigC = g_MValue.M1601TempC;
+        temperatureFinalOrigC = g_MValue.EnvTempM1601;
     }
     else //if(tempSensor == CONST_TEMPSENSOR_ADS1220)
     {
-        temperatureFinalOrigC = g_MValue.ADS1220TempC;
+        temperatureFinalOrigC = g_MValue.EnvTempAds1220;
     }
 
     //计算temperatureFinalCalibedC, temperatureFinalCalibedF
@@ -330,10 +330,11 @@ int16_t SensorMeasureTempCalcAmbientAsync(void)
     if(temperatureFinalCalibedC > 125.00)
         temperatureFinalCalibedC = 125.00;
 
-    g_MValue.FinalTempC = temperatureFinalCalibedC;
+    g_MValue.EnvTempC = temperatureFinalCalibedC;
 
     return errorCode;
 }
+
 int16_t SensorMeasureChannelInitAsync(EnumSensorChannelIndex SensorChnlIndex)
 {
     int16_t errorCode = 0;
@@ -345,8 +346,8 @@ int16_t SensorMeasureChannelInitAsync(EnumSensorChannelIndex SensorChnlIndex)
 
     uint32_t RtdType = (uint32_t) eeprom_readint32((uint32_t*) & (eepChannelConfig.ItemConfigs[SensorChnlIndex].RtdType));
     STRUCT_SENSORTYPE_CHANNEL_ADCCONFIG SensorTypeChannelAdcConfig;
-
     SensorTypeChannelAdcConfig = GetSensorTypeChannelAdcConfig(RtdType, SensorChnlIndex);
+
     ADS1220_SetReg0_Mux_Gain_BypassPGA(SensorTypeChannelAdcConfig.Mux, SensorTypeChannelAdcConfig.Gain, SensorTypeChannelAdcConfig.BypassPGA);
     return errorCode;
 }

@@ -52,10 +52,10 @@ int16_t ADS1220_CheckHealth(void)
 {
     int16_t error = 0;
 
-    uint8_t reg2_write = ADS1220_VREF_REFP1_REFN1 | ADS1220_50HZ_60HZ | ADS1220_SWITCH | ADS1220_IDAC_OFF;
+    uint8_t reg2_write = ADS1220_VREF_REFP0_REFN0 | ADS1220_50HZ_60HZ | ADS1220_ALWAYS_OPEN | ADS1220_IDAC_OFF;
     uint8_t reg2_read = ADS1220_ReadRegister(ADS1220_CONF_REG_2);
 
-    uint8_t reg3_write = ADS1220_IDAC_NONE | ADS1220_IDAC_NONE | ADS1220_DOUT_DRDY ;
+    uint8_t reg3_write = ADS1220_IDAC_NONE | ADS1220_IDAC_NONE | ADS1220_DOUT_DRDY;
     uint8_t reg3_read = ADS1220_ReadRegister(ADS1220_CONF_REG_3);
 
     if((reg2_write == reg2_read) && (reg3_write == reg3_read))
