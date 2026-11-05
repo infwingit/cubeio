@@ -135,7 +135,7 @@ void crc32EepromAppend(uint32_t* pStartAddress, uint32_t byteLengthWithCRC)
 #else
 uint32_t crc32EepromCheck(uint32_t* pStartAddress, uint32_t byteLengthWithCRC)
 {
-    return 1;
+    return 0;
 }
 
 void crc32EepromAppend(uint32_t* pStartAddress, uint32_t byteLengthWithCRC)
